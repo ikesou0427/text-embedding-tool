@@ -24,44 +24,33 @@ function encode(input: string): string {
         return '';
     }
 
-    const reqlace_words: Array<string> = [];
+    const replace_words: Array<string> = [];
     for (const target of targets) {
         const word = target.slice(2).slice(0, -2); // (())を除去
         if (word === '') {
-            reqlace_words.push("");
+            replace_words.push("");
         } 
         else {
-            reqlace_words.push("\u200B" + wordToCiphertext(word) + "\u200B"); // zero width space
+            replace_words.push("\u200B" + wordToCiphertext(word) + "\u200B"); // zero width space
         }
     }
 
     let result = input;
-    for (const word of reqlace_words) {
+    for (const word of replace_words) {
         result = result.replace(/\(\((.*?)\)\)/, word);
     }
     return result;
 }
 
 function wordToCiphertext(word: string) {
-    const zero_codes: Array<string> = [];
-    for (const char of word) {
-        const unicode = char.charCodeAt(0);
-        const binary = decimalToBinary(unicode);
-        const ciphertext = binaryToZeroCode(binary);
-        zero_codes.push(ciphertext);
+    let ciphertext = "";
+    const encoder = new TextEncoder();
+    const encode_word = encoder.encode(word);
+    for (let i = 0;i < encode_word.length; i++) {
+        const binary = encode_word[i].toString(2);
+        ciphertext += binaryToZeroCode(("00000000" + binary).slice(-8));
     }
-    return zero_codes.join("\uFEFF"); // BOM
-}
-
-function decimalToBinary(num: number): string {
-    const binary = num.toString(2);
-    const binary_array = binary.split('');
-    let result = '';
-    while (0 < binary_array.length) {
-        const byte = binary_array.splice(-8);
-        result = ("00000000" + byte.join('')).slice(-8) + result;
-    }
-    return result;
+    return ciphertext;
 }
 
 function binaryToZeroCode(binary: string) {
@@ -95,18 +84,21 @@ function decode(input: string) {
 }
 
 function ciphertextToWord(ciphertext: string): string {
-    let result = '';
-
+    const binary_text = Array<number>();
     const binary_word = ciphertextToBinary(ciphertext);
-    for (const binary_char of binary_word.split("\uFEFF")) { // BOM
-        result += String.fromCharCode(parseInt(binary_char, 2));
+    
+    for (let i = 0;i < binary_word.length;i += 8) {
+        const byte = binary_word.substr(i, 8);
+        binary_text.push(parseInt(byte, 2));
     }
-
-    return result;
+    
+    const decoder = new TextDecoder();
+    return decoder.decode(new Uint8Array(binary_text));
 }
 
 function ciphertextToBinary(ciphertext: string) {
-    return ciphertext.replace(/\u200C/g, "0").replace(/\u200D/g, "1");
+    return ciphertext.replace(/\u200C/g, "0")   // zero width non-joiner
+                     .replace(/\u200D/g, "1");  // zero width joiner
 }
 
 main();
